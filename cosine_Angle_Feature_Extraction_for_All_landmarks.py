@@ -1,0 +1,126 @@
+import pandas as pd
+import numpy as np
+from itertools import combinations
+from scipy.spatial.distance import euclidean
+
+# Define valid facial landmark indices
+valid_landmark = [0, 4, 6, 9, 13, 14, 17, 33, 40, 49, 50, 55, 61, 63, 66, 70, 78, 80, 88, 91, 105, 107, 108, 117, 118, 128, 133, 143, 145, 147, 159, 200, 204,
+                  206, 212, 216, 263, 270, 279, 280, 285, 291, 293, 296, 300, 308, 311, 321, 334, 336, 337, 346, 347, 357, 362, 372, 374, 386, 402, 424, 426, 432,
+                  436, 469, 470, 471, 472, 474, 475, 476, 477]
+
+# Define triplets for cosine angle computation
+
+# Define triplets for drawing lines
+triplets = [(39,61,91),(39,0,91),(0,91,181),(0,17,181),(291,321,308),(269,0,321),(0,17,405),(0,314,321),(269,291,0),
+            (159,33,145),(159,133,145),(386,362,374),(386,263,374),(291,436,294),(61,216,64),(55,168,285),(151,107,8),(151,336,8),
+            (334,300,445),(105,70,225)]
+triplets = [(39, 61, 91), (39, 0, 91), (0, 91, 181), (0, 17, 181), (291, 321, 308), (269, 0, 321),
+                (0, 17, 405), (0, 314, 321), (269, 291, 0), (159, 33, 145), (159, 133, 145), (386, 362, 374),
+                (386, 263, 374), (291, 436, 294), (61, 216, 64), (55, 168, 285), (151, 107, 8), (151, 336, 8),
+                (55, 151, 285), (334, 300, 445), (105, 70, 225), (61, 64, 0), (291, 294, 0), (61, 4, 291),
+                (296, 417, 382), (66, 189, 154), (61, 135, 207),(66,33,108),(296,263,337),(105,10,334)]
+triplets = [(39, 61, 91), (39, 0, 91), (0, 91, 181), (0, 17, 181), (291, 321, 308), (269, 0, 321),
+                (0, 17, 405), (0, 314, 321), (269, 291, 0), (159, 33, 145), (159, 133, 145), (386, 362, 374),
+                (386, 263, 374), (291, 436, 294), (61, 216, 64), (55, 168, 285), (151, 107, 8), (151, 336, 8),
+                (55, 151, 285), (334, 300, 445), (105, 70, 225), (61, 64, 0), (291, 294, 0), (61, 4, 291),
+                (296, 417, 382), (66, 189, 154), (61, 135, 207),(66,33,108),(296,263,337),(105,10,334),
+                (0,61,17),(61,0,292),(48,4,289),(206,4,426),(61,4,292),(292,280,289),(292,426,289),(159,130,145),
+                (46,105,107),(48,122,107)]
+triplets10 = [(0,61,17),(61,0,292),(48,4,289),(206,4,426),(61,4,292),(292,280,289),(292,426,289),(159,130,145),
+                (46,105,107),(48,122,107)]
+# Define triplets for cosine angle computation
+triplets = [(40, 61, 291), (40, 61, 91), (40, 61, 118), (291, 61, 91), (291, 61, 118), (91, 61, 118),
+            (0, 40, 61), (40, 0, 270), (0, 270, 291), (321, 291, 347), (321, 291, 61), (321, 291, 270),
+            (347, 291, 61), (347, 291, 270), (61, 291, 270), (80, 78, 88), (13, 80, 78), (80, 13, 14),
+            (80, 13, 311), (14, 13, 311), (308, 311, 13), (402, 308, 311), (17, 91, 61), (321, 17, 91),
+            (17, 321, 291), (78, 88, 14), (88, 14, 402), (88, 14, 13), (402, 14, 13), (308, 402, 14),
+            (216, 206, 49), (50, 216, 212), (50, 216, 206), (212, 216, 206), (216, 212, 204), (200, 204, 212),
+            (424, 200, 204), (436, 426, 279), (432, 436, 280), (432, 436, 426), (280, 436, 426), (424, 432, 436),
+            (432, 424, 200), (147, 70, 63), (105, 63, 70), (66, 105, 63), (105, 66, 107), (9, 107, 66),
+            (9, 107, 6), (66, 107, 6), (118, 117, 143), (128, 118, 50), (128, 118, 61), (128, 118, 117),
+            (50, 118, 61), (50, 118, 117), (61, 118, 117), (216, 50, 118), (296, 336, 6), (336, 296, 334),
+            (296, 334, 293), (300, 293, 334), (372, 300, 293), (346, 372, 300), (280, 347, 346), (280, 347, 291),
+            (280, 347, 357), (346, 347, 291), (346, 347, 357), (291, 347, 357), (347, 346, 372), (347, 280, 436),
+            (336, 6, 107), (336, 6, 4), (107, 6, 4), (145, 33, 159), (33, 159, 145), (33, 159, 133),
+            (145, 159, 133), (145, 133, 159), (33, 145, 133), (33, 145, 159), (133, 145, 159), (386, 362, 374),
+            (362, 386, 374), (362, 386, 263), (374, 386, 263), (386, 263, 374), (362, 374, 386), (362, 374, 263),
+            (386, 374, 263), (472, 469, 470), (469, 470, 471), (469, 472, 471), (472, 471, 470), (475, 474, 477),#old
+            (474, 475, 476), (474, 477, 476), (475, 476, 477), (107, 9, 108), (337, 108, 9),
+            (39, 61, 91), (39, 0, 91), (0, 91, 181), (0, 17, 181), (291, 321, 308), (269, 0, 321),
+                (0, 17, 405), (0, 314, 321), (269, 291, 0), (159, 33, 145), (159, 133, 145), (386, 362, 374),
+                (386, 263, 374), (291, 436, 294), (61, 216, 64), (55, 168, 285), (151, 107, 8), (151, 336, 8),
+                (55, 151, 285), (334, 300, 445), (105, 70, 225), (61, 64, 0), (291, 294, 0), (61, 4, 291),
+                (296, 417, 382), (66, 189, 154), (61, 135, 207),(66,33,108),(296,263,337),(105,10,334),
+                (0,61,17),(61,0,292),(48,4,289),(206,4,426),(61,4,292),(292,280,289),(292,426,289),(159,130,145),
+                (46,105,107),(48,122,107)]
+# Load the dataset
+file_path = "normalized_landmarks_xy.xlsx"
+file_path ="jaffee_normalized_landmarks_xy.xlsx"
+#file_path = "/content/drive/MyDrive/SIH2024/LivenessDetection/CKdataset_landmarks_normalized.xlsx"
+df = pd.read_excel(file_path, engine='openpyxl')
+
+# Assign column names
+new_columns = ["Pose", "Image"] +  list(range(956))
+df.columns = new_columns
+
+import numpy as np
+import pandas as pd
+
+def compute_cosine_angles(df, triplets):
+    """
+    Compute angles for each triplet in the range [0, 360] degrees.
+    Assumes x and y coordinates are stored in consecutive columns.
+    """
+    angle_features = []
+
+    for _, row in df.iterrows():
+        sample_angles = []
+        for (a, b, c) in triplets:
+            # Extract coordinates using column indices
+            Ax, Ay = row[a * 2], row[a * 2 + 1]
+            Bx, By = row[b * 2], row[b * 2 + 1]
+            Cx, Cy = row[c * 2], row[c * 2 + 1]
+
+            # Convert to NumPy arrays
+            A = np.array([Ax, Ay])
+            B = np.array([Bx, By])
+            C = np.array([Cx, Cy])
+
+            # Compute vectors AB and BC
+            AB = A - B
+            BC = C - B
+
+            # Compute angle using atan2 for full 360° range
+            angle_rad = np.arctan2(BC[1], BC[0]) - np.arctan2(AB[1], AB[0])
+            angle_deg = np.degrees(angle_rad)
+
+            # Convert negative angles to [0, 360] range
+            if angle_deg < 0:
+                angle_deg += 360
+
+            sample_angles.append(angle_deg)
+
+        angle_features.append(sample_angles)
+
+    return np.array(angle_features)
+
+
+# Compute cosine angles
+cosine_features = compute_cosine_angles(df, triplets)
+
+final_features = cosine_features
+# Create DataFrame
+num_features = final_features.shape[1]
+feature_columns = [f"Feature_{i+1}" for i in range(num_features)]
+result_df = pd.DataFrame(final_features, columns=feature_columns)
+
+# Add labels and image names
+result_df['Action_Label'] = df['Pose'].values
+result_df['Image_Name'] = df['Image']
+# Remove duplicate columns
+data_no_duplicate_columns = result_df.loc[:, ~result_df.T.duplicated(keep='first')]
+# Save the file
+output_path = "custom_angle_feature150.xlsx"
+data_no_duplicate_columns.to_excel(output_path, index=False)
+
+print("Final shape of dataset:", result_df.shape)

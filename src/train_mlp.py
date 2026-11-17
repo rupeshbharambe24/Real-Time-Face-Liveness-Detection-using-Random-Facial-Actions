@@ -16,8 +16,9 @@ from tensorflow.keras.utils import to_categorical
 
 classes = ['Pout' ,'Open_Mouth',"Neutral", 'Eyes_Close', 'Smile', 'Inward_Lip_Press', 'Show_Teeth']
 # Load the dataset
-file_path = "/content/drive/MyDrive/SIH2024/LivenessDetection/FinalData/jaf_angle_feature150.xlsx"
-file_path ="custom_xangle_feature150.xlsx"
+import os
+file_path = "data/angle_features_cosine.xlsx"  # output of src/angle_features_cosine.py
+os.makedirs("models", exist_ok=True)
 data = pd.read_excel(file_path, engine='openpyxl')
 # Mapping dictionary for replacement
 label_mapping = {
@@ -81,14 +82,14 @@ optimizer = Adam(learning_rate=0.0005)
 model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
 # Save the best model during training
-best_model_path = "Custom_xangle/best_model.h5"
+best_model_path = "models/best_model.h5"
 checkpoint = ModelCheckpoint(best_model_path, save_best_only=True, monitor="val_accuracy", verbose=1)
 
 # Train the model
 history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=500, batch_size=32, callbacks=[checkpoint])
 
 # Save model, scaler, and label encoder using pickle
-save_path = "Custom_xangle/model_with_scaler_and_encoder.pkl"
+save_path = "models/model_with_scaler_and_encoder.pkl"
 with open(save_path, 'wb') as file:
     pickle.dump({'model_path': best_model_path, 'scaler': scaler, 'label_encoder': label_encoder, 'pca': pca}, file)
 

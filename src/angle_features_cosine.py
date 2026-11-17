@@ -29,9 +29,7 @@ triplets = [(40, 61, 291), (40, 61, 91), (40, 61, 118), (291, 61, 91), (291, 61,
                 (0,61,17),(61,0,292),(48,4,289),(206,4,426),(61,4,292),(292,280,289),(292,426,289),(159,130,145),
                 (46,105,107),(48,122,107)]
 # Load the dataset
-file_path = "/content/drive/MyDrive/SIH2024/LivenessDetection/FinalData/normalized_landmarks_xy.xlsx"
-#file_path ="/content/drive/MyDrive/SIH2024/LivenessDetection/FinalData/jaffee_normalized_landmarks_xy.xlsx"
-file_path = r"jaffee_normalized_landmarks_xy.xlsx"
+file_path = "data/normalized_landmarks_xy.xlsx"
 df = pd.read_excel(file_path, engine='openpyxl')
 
 # Assign column names
@@ -127,8 +125,7 @@ result_df['Image_Name'] = df['Image']
 data_no_duplicate_columns = result_df.loc[:, ~result_df.T.duplicated(keep='first')]
 data_no_duplicate_columns=result_df
 # Save the file
-output_path = "jafee_cosineangle_feature150.xlsx"
-#output_path = "/content/drive/MyDrive/SIH2024/LivenessDetection/FinalData/jaf_angle_feature150.xlsx"
+output_path = "data/angle_features_cosine.xlsx"
 data_no_duplicate_columns.to_excel(output_path, index=False)
 
 print("Final shape of dataset:", result_df.shape)

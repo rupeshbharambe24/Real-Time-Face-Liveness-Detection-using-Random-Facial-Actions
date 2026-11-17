@@ -1,0 +1,10 @@
+mediapipe             # uses the legacy mp.solutions.face_mesh API (older 0.10.x releases)
+opencv-python
+numpy
+pandas
+scipy
+scikit-learn
+tensorflow
+openpyxl
+matplotlib
+seaborn

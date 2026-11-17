@@ -1,4 +1,5 @@
-# 10 fold classification
+# Stratified k-fold cross-validation of the MLP (10 folds)
+import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
@@ -18,7 +19,9 @@ print("import completed")
 
 # Define the classes
 classes = ['Pout', 'Open_Mouth', "Neutral", 'Eyes_Close', 'Smile', 'Inward_Lip_Press', 'Show_Teeth']
-file_path = "custom_xangle_feature150.xlsx"
+file_path = "data/angle_features_cosine.xlsx"  # output of src/angle_features_cosine.py
+N_FOLDS = 10
+os.makedirs("models/cv", exist_ok=True)
 data = pd.read_excel(file_path, engine='openpyxl')
 
 # Mapping dictionary for replacement
@@ -57,8 +60,8 @@ pca = PCA(n_components=0.95)  # Retain 95% variance
 X_selected = pca.fit_transform(X_scaled)
 X_selected = X_scaled  # If you don't want to use PCA
 
-# Stratified KFold cross-validation (10-fold)
-skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+# Stratified KFold cross-validation
+skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
 
 # Store the results
 fold_accuracies = []
@@ -69,7 +72,7 @@ fold_confusion_matrices = []
 avg_conf_matrix = np.zeros((len(classes), len(classes)))
 
 for fold, (train_idx, val_idx) in enumerate(skf.split(X_selected, y_encoded), 1):
-    print(f"\nTraining fold {fold}/5...")
+    print(f"\nTraining fold {fold}/{N_FOLDS}...")
     
     # Split data into training and validation sets
     X_train, X_val = X_selected[train_idx], X_selected[val_idx]
@@ -91,7 +94,7 @@ for fold, (train_idx, val_idx) in enumerate(skf.split(X_selected, y_encoded), 1)
     model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
     
     # Save the best model during training
-    best_model_path = f"Custom_xangle/best_model_fold{fold}.h5"
+    best_model_path = f"models/cv/best_model_fold{fold}.h5"
     checkpoint = ModelCheckpoint(best_model_path, save_best_only=True, monitor="val_accuracy", verbose=1)
     
     # Train the model
@@ -131,7 +134,7 @@ for fold, (train_idx, val_idx) in enumerate(skf.split(X_selected, y_encoded), 1)
     plt.show()
 
 # Compute the average confusion matrix
-avg_conf_matrix /= 5
+avg_conf_matrix /= N_FOLDS
 
 # Print the average confusion matrix
 print("\nAverage Normalized Confusion Matrix Across All Folds:")
@@ -150,7 +153,7 @@ print(f"Mean Accuracy: {np.mean(fold_accuracies) * 100:.2f}%")
 print(f"Standard Deviation of Accuracy: {np.std(fold_accuracies) * 100:.2f}%")
 
 # Optionally save the results to a file
-with open("Custom_xangle/cross_validation_results.pkl", 'wb') as file:
+with open("models/cv/cross_validation_results.pkl", 'wb') as file:
     pickle.dump({
         'accuracies': fold_accuracies,
         'classification_reports': fold_classification_reports,

@@ -6,7 +6,6 @@ from tensorflow.keras.models import load_model
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 import joblib  # For loading scaler
 import pickle
-
 # Define landmark triplets for angle computation
 triplets = [(39, 61, 91), (39, 0, 91), (0, 91, 181), (0, 17, 181), (291, 321, 308),
             (269, 0, 321), (0, 17, 405), (0, 314, 321), (269, 291, 0), (159, 33, 145),
@@ -42,7 +41,6 @@ triplets = [(40, 61, 291), (40, 61, 91), (40, 61, 118), (291, 61, 91), (291, 61,
                 (296, 417, 382), (66, 189, 154), (61, 135, 207),(66,33,108),(296,263,337),(105,10,334),
                 (0,61,17),(61,0,292),(48,4,289),(206,4,426),(61,4,292),(292,280,289),(292,426,289),(159,130,145),
                 (46,105,107),(48,122,107)]
-
 # Initialize MediaPipe FaceMesh
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
@@ -51,9 +49,9 @@ face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refin
 HEIGHT_LANDMARKS = (10, 152)  # Chin and top of the head
 WIDTH_LANDMARKS = (93, 323)   # Left cheek and right cheek
 
-def extract_landmarks(image):
+def extract_landmarks(image_path):
     """Extract normalized facial landmarks."""
-    #image = cv2.imread(image)
+    image = cv2.imread(image_path)
     # Get image dimensions
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)  # Find the center of the image
@@ -63,7 +61,7 @@ def extract_landmarks(image):
 
     # Rotate the image
     r_image = cv2.warpAffine(image, rotation_matrix, (w, h))
-    #image=r_image
+    image=r_image
 
     if image is None:
         print("❌ Error: Could not load image.")
@@ -92,14 +90,14 @@ def extract_landmarks(image):
         normalized_landmarks = [
             ((lm[0] - w1) / total_width, (lm[1] - h1) / total_height) for lm in landmarks
         ]
-        #normalized_landmarks=landmarks
+
         return [coord for lm in normalized_landmarks for coord in lm]
 
     print("⚠ No face detected in the image.")
     return None
+import numpy as np
 
-
-def compute_cosineSimOld_angles(landmarks):
+def compute_cosineSim_angles(landmarks):
     """
     Compute rotation-invariant angles for a single sample using cosine similarity.
     Assumes x and y coordinates are stored in consecutive positions.
@@ -133,7 +131,29 @@ def compute_cosineSimOld_angles(landmarks):
             angles.append(None)
 
     return np.array(angles, dtype=np.float32)
+def compute_cosine_angles(landmarks):
+    """Compute cosine angles for given landmark coordinates."""
+    angles = []
+    for (a, b, c) in triplets:
+        try:
+            Ax, Ay = landmarks[a * 2], landmarks[a * 2 + 1]
+            Bx, By = landmarks[b * 2], landmarks[b * 2 + 1]
+            Cx, Cy = landmarks[c * 2], landmarks[c * 2 + 1]
 
+            A, B, C = np.array([Ax, Ay]), np.array([Bx, By]), np.array([Cx, Cy])
+            AB, BC = A - B, C - B
+
+            angle_rad = np.arctan2(BC[1], BC[0]) - np.arctan2(AB[1], AB[0])
+            angle_deg = np.degrees(angle_rad)
+
+            if angle_deg < 0:
+                angle_deg += 360
+            angles.append(angle_deg)
+        except IndexError:
+            print(f"⚠ Warning: Landmark index out of range in triplet {a, b, c}")
+            angles.append(None)
+
+    return np.array(angles, dtype=np.float32)
 
 def predict_expression(image_path, model, scaler, label_encoder):
     """Predict facial expression from a single image."""
@@ -143,7 +163,7 @@ def predict_expression(image_path, model, scaler, label_encoder):
         print("❌ No valid landmarks extracted.")
         return
 
-    angles = compute_cosineSimOld_angles(landmarks)
+    angles = compute_cosineSim_angles(landmarks)
     features = angles
 
     # Ensure no NaN values in features
@@ -161,47 +181,20 @@ def predict_expression(image_path, model, scaler, label_encoder):
     predicted_label = label_encoder.inverse_transform([pred_class_index])[0]
 
     print(f"\n✅ Predicted Expression: {predicted_label}")
+    return predicted_label
 
-
-# Load model, scaler, label encoder, and PCAcosine
-load_path = r'model/model_with_scaler_and_encoder.pkl'
+# Load model, scaler, label encoder, and PCA
+load_path = "models/model_with_scaler_and_encoder.pkl"
 with open(load_path, 'rb') as file:
     data = pickle.load(file)
 
 # Extract the components
-best_model_path = r'model/best_model.h5'
+best_model_path = data['model_path']
 scaler = data['scaler']
 label_encoder = data['label_encoder']
 best_model = load_model(best_model_path)  # Load the model properly
 
-# Start capturing video from the camera (default webcam 0)
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-    print("Error: Could not access the camera.")
-    exit()
-
-try:
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Could not read frame.")
-            break
-    
-        # Make prediction on the current frame
-        predicted_class = predict_expression(frame, best_model, scaler, label_encoder)
-    
-        # Display the result on the frame
-        cv2.putText(frame, f'Predicted: {predicted_class}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow('Live Camera Prediction', frame)
-    
-        # Introduce a delay to lower frame rate (e.g., 30 ms, equivalent to ~33 FPS)
-        if cv2.waitKey(1000) & 0xFF == 27:  # 27 is the ASCII code for the 'Esc' key
-            break
-            
-except KeyboardInterrupt:
-    print("\nKeyboard Interrupt detected. Exiting gracefully...")
-
-# Release the camera and close all OpenCV windows
-cap.release()
-cv2.destroyAllWindows()
+# Example Usage
+import sys
+image_path = sys.argv[1] if len(sys.argv) > 1 else "img.jpg"
+predict_expression(image_path, best_model, scaler, label_encoder)

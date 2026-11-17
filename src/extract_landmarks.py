@@ -8,8 +8,8 @@ mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
 
 # Dataset folder path
-dataset_path = r"NewDataset"
-output_file = "normalized_landmarks_xy.xlsx"
+dataset_path = r"data/NewDataset"  # one sub-folder per facial action
+output_file = "data/normalized_landmarks_xy.xlsx"
 
 # Initialize variables
 output_data = []
@@ -89,10 +89,10 @@ for pose_folder in os.listdir(dataset_path):
                             output_data = []  # Clear the list after saving
 
 # Save any remaining data
-if len(output_data) >= batch_size:
+if output_data:
     num_landmarks = len(output_data[0]) - 2
     columns = ["Pose", "Image"] + [f"L{i}" for i in range(num_landmarks)]
-    save_to_excel(output_data, output_file, columns)
+    save_to_excel(output_data, output_file, columns, mode='a')
     output_data = []
     print("Final batch saved.")
 
